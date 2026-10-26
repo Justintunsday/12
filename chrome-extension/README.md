@@ -1,6 +1,6 @@
-# Chrome Extension 1.0
+# Desktop Chrome / Edge Extension 1.0
 
-1. Open `chrome://extensions` in Chrome and enable **Developer mode**.
+1. Open `chrome://extensions` in desktop Chrome or `edge://extensions` in desktop Edge and enable **Developer mode**.
 2. Click **Load unpacked** and select this folder.
 3. Complete the website's security verification and sign in manually, then open an individual assignment.
 4. Click the extension icon. Enter your own DeepSeek API key and save the settings.
@@ -12,3 +12,5 @@ The extension uses the official `https://api.deepseek.com` endpoint and defaults
 You may switch tabs during analysis, but keep both the assistant and the original assignment tab open. The extension does not complete or bypass website security verification and does not submit answers automatically.
 
 After editing the extension files, reload the extension on the extensions page, then refresh the assistant page. The version displayed at the top should be 1.0.
+
+For Android Chrome or Edge, use the [Android bookmarklet](../android/README.md). Android Chrome cannot load this desktop extension through **Load unpacked**.

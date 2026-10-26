@@ -1,6 +1,8 @@
-# wBlock for iOS 1.0
+# wBlock for iOS 1.1
 
 A userscript edition of Fireflies Reading Assistant for Safari on iPhone and iPad. It uses wBlock's GM request and storage APIs, with a collapsible panel on the assignment page.
+
+The same source also builds the [Android Chrome/Edge bookmarklet](../android/README.md). The normal userscript continues to use wBlock's request and storage APIs; the Android build uses native browser requests and page-memory storage.
 
 ## Installation
 
@@ -25,7 +27,7 @@ API requests go only to `api.deepseek.com`, declared in the script's `@connect` 
 
 Confidence scores are model estimates, not accuracy guarantees. Low-confidence answers require manual review before selection. If the page changes during analysis, reread the assignment before selecting answers.
 
-The metadata header is required by userscript managers. There are no ordinary code comments or embedded credentials.
+The metadata header is required by userscript managers. There are no embedded credentials.
 
 ## Verification
 

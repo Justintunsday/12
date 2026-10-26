@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Fireflies Reading Assistant
 // @namespace    https://github.com/Justintunsday/pianpianliuying
-// @version      1.0
+// @version      1.1
 // @description  Read Fireflies assignments, analyze answers with DeepSeek, and select options.
 // @match        https://fireflies.chiculture.org.hk/app/*
 // @run-at       document-idle
@@ -17,7 +17,22 @@
 (() => {
   "use strict";
   if (window.top !== window.self) return;
-  if (document.getElementById("fireflies-wblock-host")) return;
+  const bookmarklet = typeof FIREFLIES_BOOKMARKLET !== "undefined" && FIREFLIES_BOOKMARKLET;
+  if (bookmarklet && (location.origin !== "https://fireflies.chiculture.org.hk" ||
+      !/^\/app\/assignments\/\d{4}-\d{2}-\d{2}\/?$/.test(location.pathname))) {
+    alert("请先在篇篇流萤登录并打开一篇文章的答题页，再运行此书签。");
+    return;
+  }
+  const hostId = bookmarklet ? "fireflies-android-host" : "fireflies-wblock-host";
+  const existing = document.getElementById(hostId);
+  if (existing) {
+    if (bookmarklet) existing.dispatchEvent(new Event("fireflies-open"));
+    return;
+  }
+  const memory = new Map();
+  const getValue = (key, fallback) => bookmarklet ? (memory.get(key) ?? fallback) : GM_getValue(key, fallback);
+  const setValue = (key, value) => bookmarklet ? memory.set(key, value) : GM_setValue(key, value);
+  const deleteValue = (key) => bookmarklet ? memory.delete(key) : GM_deleteValue(key);
   let assignment = null, answers = null, busy = false, request = null, cancelRequest = null;
   let root;
   const el = (id) => root.getElementById(id);
@@ -195,7 +210,7 @@ async function fillPage(source, choices) {
       assignment = validateAssignment(extractPage());
       el("title").textContent = assignment.title;
       status("已读取 " + assignment.questions.length + " 道题。可开始分析。");
-      const saved = await GM_getValue(cacheKey(), null);
+      const saved = await getValue(cacheKey(), null);
       if (saved && JSON.stringify(saved.assignment) === JSON.stringify(assignment)) {
         try {
           answers = validateAnswers({answers: saved.answers}, assignment);
@@ -205,6 +220,23 @@ async function fillPage(source, choices) {
     } catch (error) { status(error.message, true); }
     controls();
   }
+  function nativeRequest(details) {
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => {timedOut = true; controller.abort();}, details.timeout);
+    fetch(details.url, {
+      method: details.method, headers: details.headers, body: details.data,
+      signal: controller.signal, mode: "cors", credentials: "omit", redirect: "error",
+      cache: "no-store", referrerPolicy: "no-referrer"
+    }).then(async (response) => {
+      details.onload({status: response.status, responseText: await response.text()});
+    }).catch((error) => {
+      if (controller.signal.aborted) {
+        if (timedOut) details.ontimeout(); else details.onabort();
+      } else details.onerror({error: error.message + "；请检查网络，网站策略可能限制跨域请求。"});
+    }).finally(() => clearTimeout(timer));
+    return {abort: () => controller.abort()};
+  }
   function callDeepSeek(payload, apiKey) {
     return new Promise((resolve, reject) => {
       let finished = false;
@@ -213,7 +245,7 @@ async function fillPage(source, choices) {
         fail(new Error("已取消分析。"));
         request?.abort?.();
       };
-      request = GM_xmlhttpRequest({
+      request = (bookmarklet ? nativeRequest : GM_xmlhttpRequest)({
         method: "POST",
         url: "https://api.deepseek.com/chat/completions",
         anonymous: true,
@@ -232,7 +264,7 @@ async function fillPage(source, choices) {
           } catch { fail(new Error("接口返回的内容不是 JSON。")); }
         },
         onerror(response) { fail(new Error("接口连接失败：" + (response?.error || response?.statusText || "请检查网络和 wBlock 权限。"))); },
-        ontimeout() { fail(new Error("请求超过 4 分钟，请保持 Safari 在前台后重试。")); },
+        ontimeout() { fail(new Error("请求超过 4 分钟，请保持浏览器在前台后重试。")); },
         onabort() { fail(new Error("已取消分析。")); }
       });
       controls();
@@ -243,7 +275,7 @@ async function fillPage(source, choices) {
     const apiKey = el("key").value.trim(), model = el("model").value.trim();
     if (!apiKey || !model) { status("请先填写自己的 API Key 和模型名。", true); return; }
     busy = true; answers = null; el("answers").replaceChildren(); el("review").checked = false; controls();
-    status("DeepSeek 正在分析，请保持 Safari 在前台…");
+    status("DeepSeek 正在分析，请保持浏览器在前台…");
     try {
       const {title, article, questions} = assignment;
       const result = await callDeepSeek({
@@ -256,7 +288,7 @@ async function fillPage(source, choices) {
         ]
       }, apiKey);
       answers = parseCompletion(result, assignment);
-      try { await GM_setValue(cacheKey(), {assignment, answers}); } catch {}
+      try { await setValue(cacheKey(), {assignment, answers}); } catch {}
       renderAnswers();
       status(answers.some((a) => a.confidence < .8) ? "答案已生成。低置信度题目请先核对。" : "答案已生成，核对后可一键勾选。");
     } catch (error) { status("分析失败：" + error.message, true); }
@@ -276,18 +308,18 @@ async function fillPage(source, choices) {
   }
   async function mount() {
     const host = document.createElement("div");
-    host.id = "fireflies-wblock-host";
+    host.id = hostId;
     document.documentElement.append(host);
     root = host.attachShadow({mode: "closed"});
     root.innerHTML = `
       <style>
-        :host {all:initial;position:fixed;z-index:2147483646;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#24392f;}
+        :host {all:initial;position:fixed;z-index:2147483646;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#24392f;text-size-adjust:100%;}
         * {box-sizing:border-box;}
         button,input {font:inherit;font-size:16px;}
         button {border:1px solid #2c5c42;border-radius:8px;padding:10px 12px;background:#2c5c42;color:white;min-height:44px;cursor:pointer;}
         button:disabled {opacity:.45;}
         button.secondary {background:#fff;color:#2c5c42;border-color:#bbc9bb;}
-        #panel {width:calc(100vw - 24px);max-width:440px;max-height:72vh;max-height:72dvh;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:#fafbf6;border:1px solid #c6d1bf;border-radius:14px;padding:16px;box-shadow:0 8px 32px #0003;line-height:1.5;}
+        #panel {width:calc(100vw - 24px);max-width:440px;max-height:72vh;max-height:72dvh;overflow:auto;overflow-wrap:anywhere;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:#fafbf6;border:1px solid #c6d1bf;border-radius:14px;padding:16px;box-shadow:0 8px 32px #0003;line-height:1.5;}
         header,.actions {display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
         header strong {flex:1;font-size:18px;}
         .actions {margin:12px 0;}
@@ -309,12 +341,12 @@ async function fillPage(source, choices) {
       </style>
       <button id="launcher">答题助手</button>
       <section id="panel" hidden role="dialog" aria-label="篇篇流萤答题助手">
-        <header><strong>篇篇流萤 · 1.0</strong><button id="close" class="secondary">收起</button></header>
+        <header><strong>篇篇流萤 · 1.1</strong><button id="close" class="secondary">收起</button></header>
         <details id="settings"><summary>DeepSeek 设置</summary>
           <label>API Key<input id="key" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
           <label>模型<input id="model" value="deepseek-flash" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
           <div class="actions"><button id="save">保存设置</button><button id="forget" class="secondary">清除密钥</button></div>
-          <p class="muted">设置存入 wBlock 脚本存储。仅向官方 DeepSeek 发送文章、题目与选项。</p>
+          <p class="muted">${bookmarklet ? "密钥和答案仅保留在当前页面内存，刷新或关闭页面后清除。" : "设置存入 wBlock 脚本存储。"}仅向官方 DeepSeek 发送文章、题目与选项。</p>
         </details>
         <div class="actions"><button id="read" class="secondary">读取题目</button><button id="solve" disabled>分析答案</button><button id="fill" disabled>一键勾选</button><button id="cancel" class="secondary" hidden>取消</button></div>
         <p id="status" role="status" aria-live="polite">请打开题目页。</p><h2 id="title"></h2>
@@ -322,10 +354,12 @@ async function fillPage(source, choices) {
         <details id="analysis" hidden><summary>答案分析 · 点击展开 / 收起</summary><div id="answers"></div></details>
         <p class="muted">核对后在网站手动提交。模型置信度不保证正确率；网站验证和登录由你完成。</p>
       </section>`;
-    el("launcher").addEventListener("click", async () => {
+    const openPanel = async () => {
       el("panel").hidden = false; el("launcher").hidden = true;
       if (!assignment || assignment.url !== location.href) await readAssignment();
-    });
+    };
+    el("launcher").addEventListener("click", openPanel);
+    host.addEventListener("fireflies-open", openPanel);
     el("close").addEventListener("click", () => {el("panel").hidden = true; el("launcher").hidden = false;});
     el("read").addEventListener("click", readAssignment);
     el("solve").addEventListener("click", solve);
@@ -334,22 +368,23 @@ async function fillPage(source, choices) {
     el("cancel").addEventListener("click", () => cancelRequest?.());
     el("save").addEventListener("click", async () => {
       try {
-        await GM_setValue("settings", {apiKey: el("key").value.trim(), model: el("model").value.trim()});
-        status("设置已保存。");
+        await setValue("settings", {apiKey: el("key").value.trim(), model: el("model").value.trim()});
+        status(bookmarklet ? "设置已保留在当前页面，刷新后需重新填写。" : "设置已保存。");
       } catch (error) {status("保存失败：" + error.message, true);}
     });
     el("forget").addEventListener("click", async () => {
       try {
-        await GM_deleteValue("settings"); el("key").value = "";
+        await deleteValue("settings"); el("key").value = "";
         el("settings").open = true; status("已清除本脚本保存的密钥。");
       } catch (error) {status(error.message, true);}
     });
     try {
-      const settings = await GM_getValue("settings", {});
+      const settings = await getValue("settings", {});
       el("key").value = settings?.apiKey || ""; el("model").value = settings?.model || "deepseek-flash";
       el("settings").open = !el("key").value;
     } catch (error) {status("读取设置失败：" + error.message, true);}
     controls();
+    if (bookmarklet) await openPanel();
   }
   function bootstrap() {
     if (document.documentElement) mount().catch(() => {});

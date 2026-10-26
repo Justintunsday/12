@@ -1,0 +1,16 @@
+{
+  "name": "fireflies-reading-assistant",
+  "version": "1.1.0",
+  "private": true,
+  "engines": {"node": ">=20"},
+  "description": "Build and verify the Android Chrome/Edge bookmarklet",
+  "scripts": {
+    "build:android": "node android/build.cjs",
+    "check:android": "node android/build.cjs --check && node android/check.cjs",
+    "test": "node chrome-extension/check.cjs && node chrome-extension/check-fill.cjs && node wblock/check.cjs && node chrome-extension/check-fill.cjs --wblock && npm run check:android"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright": "1.64.1"
+  }
+}
