@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Fireflies Reading Assistant
 // @namespace    https://github.com/Justintunsday/pianpianliuying
-// @version      1.1
+// @version      1.2.0
 // @description  Read Fireflies assignments, analyze answers with DeepSeek, and select options.
 // @match        https://fireflies.chiculture.org.hk/app/*
 // @run-at       document-idle
@@ -11,28 +11,35 @@
 // @grant        GM_setValue
 // @grant        GM_deleteValue
 // @grant        GM_xmlhttpRequest
+// @grant        GM.getValue
+// @grant        GM.setValue
+// @grant        GM.deleteValue
+// @grant        GM.xmlHttpRequest
 // @connect      api.deepseek.com
+// @updateURL    https://raw.githubusercontent.com/Justintunsday/pianpianliuying/main/wblock/fireflies.user.js
+// @downloadURL  https://raw.githubusercontent.com/Justintunsday/pianpianliuying/main/wblock/fireflies.user.js
 // ==/UserScript==
 
 (() => {
   "use strict";
   if (window.top !== window.self) return;
-  const bookmarklet = typeof FIREFLIES_BOOKMARKLET !== "undefined" && FIREFLIES_BOOKMARKLET;
-  if (bookmarklet && (location.origin !== "https://fireflies.chiculture.org.hk" ||
-      !/^\/app\/assignments\/\d{4}-\d{2}-\d{2}\/?$/.test(location.pathname))) {
-    alert("请先在篇篇流萤登录并打开一篇文章的答题页，再运行此书签。");
-    return;
-  }
-  const hostId = bookmarklet ? "fireflies-android-host" : "fireflies-wblock-host";
+  if (location.origin !== "https://fireflies.chiculture.org.hk") return;
+  // Keep the original host ID and storage keys so existing iOS installs update in place.
+  const hostId = "fireflies-wblock-host";
   const existing = document.getElementById(hostId);
   if (existing) {
-    if (bookmarklet) existing.dispatchEvent(new Event("fireflies-open"));
+    existing.dispatchEvent(new Event("fireflies-open"));
     return;
   }
-  const memory = new Map();
-  const getValue = (key, fallback) => bookmarklet ? (memory.get(key) ?? fallback) : GM_getValue(key, fallback);
-  const setValue = (key, value) => bookmarklet ? memory.set(key, value) : GM_setValue(key, value);
-  const deleteValue = (key) => bookmarklet ? memory.delete(key) : GM_deleteValue(key);
+  const gm = typeof GM === "object" && GM ? GM : {};
+  function managerCall(legacy, modern, args) {
+    if (typeof legacy === "function") return legacy(...args);
+    if (typeof gm[modern] === "function") return gm[modern](...args);
+    throw new Error("用户脚本 API 不可用，请通过支持 GM 存储和跨域请求的脚本管理器运行。");
+  }
+  const getValue = (key, fallback) => managerCall(typeof GM_getValue === "function" ? GM_getValue : null, "getValue", [key, fallback]);
+  const setValue = (key, value) => managerCall(typeof GM_setValue === "function" ? GM_setValue : null, "setValue", [key, value]);
+  const deleteValue = (key) => managerCall(typeof GM_deleteValue === "function" ? GM_deleteValue : null, "deleteValue", [key]);
   let assignment = null, answers = null, busy = false, request = null, cancelRequest = null;
   let root;
   const el = (id) => root.getElementById(id);
@@ -220,23 +227,6 @@ async function fillPage(source, choices) {
     } catch (error) { status(error.message, true); }
     controls();
   }
-  function nativeRequest(details) {
-    const controller = new AbortController();
-    let timedOut = false;
-    const timer = setTimeout(() => {timedOut = true; controller.abort();}, details.timeout);
-    fetch(details.url, {
-      method: details.method, headers: details.headers, body: details.data,
-      signal: controller.signal, mode: "cors", credentials: "omit", redirect: "error",
-      cache: "no-store", referrerPolicy: "no-referrer"
-    }).then(async (response) => {
-      details.onload({status: response.status, responseText: await response.text()});
-    }).catch((error) => {
-      if (controller.signal.aborted) {
-        if (timedOut) details.ontimeout(); else details.onabort();
-      } else details.onerror({error: error.message + "；请检查网络，网站策略可能限制跨域请求。"});
-    }).finally(() => clearTimeout(timer));
-    return {abort: () => controller.abort()};
-  }
   function callDeepSeek(payload, apiKey) {
     return new Promise((resolve, reject) => {
       let finished = false;
@@ -245,7 +235,7 @@ async function fillPage(source, choices) {
         fail(new Error("已取消分析。"));
         request?.abort?.();
       };
-      request = (bookmarklet ? nativeRequest : GM_xmlhttpRequest)({
+      request = managerCall(typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : null, "xmlHttpRequest", [{
         method: "POST",
         url: "https://api.deepseek.com/chat/completions",
         anonymous: true,
@@ -263,10 +253,12 @@ async function fillPage(source, choices) {
             finished = true; resolve(result);
           } catch { fail(new Error("接口返回的内容不是 JSON。")); }
         },
-        onerror(response) { fail(new Error("接口连接失败：" + (response?.error || response?.statusText || "请检查网络和 wBlock 权限。"))); },
+        onerror(response) { fail(new Error("接口连接失败：" + (response?.error || response?.statusText || "请检查网络和脚本管理器权限。"))); },
         ontimeout() { fail(new Error("请求超过 4 分钟，请保持浏览器在前台后重试。")); },
         onabort() { fail(new Error("已取消分析。")); }
-      });
+      }]);
+      // Promise-based managers may reject in addition to invoking an error callback.
+      request?.catch?.((error) => fail(new Error("接口连接失败：" + (error?.message || "请检查脚本管理器权限。"))));
       controls();
     });
   }
@@ -341,12 +333,12 @@ async function fillPage(source, choices) {
       </style>
       <button id="launcher">答题助手</button>
       <section id="panel" hidden role="dialog" aria-label="篇篇流萤答题助手">
-        <header><strong>篇篇流萤 · 1.1</strong><button id="close" class="secondary">收起</button></header>
+        <header><strong>篇篇流萤 · 1.2.0</strong><button id="close" class="secondary">收起</button></header>
         <details id="settings"><summary>DeepSeek 设置</summary>
           <label>API Key<input id="key" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
           <label>模型<input id="model" value="deepseek-flash" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
           <div class="actions"><button id="save">保存设置</button><button id="forget" class="secondary">清除密钥</button></div>
-          <p class="muted">${bookmarklet ? "密钥和答案仅保留在当前页面内存，刷新或关闭页面后清除。" : "设置存入 wBlock 脚本存储。"}仅向官方 DeepSeek 发送文章、题目与选项。</p>
+          <p class="muted">设置存入用户脚本管理器的独立存储。仅向官方 DeepSeek 发送文章、题目与选项。</p>
         </details>
         <div class="actions"><button id="read" class="secondary">读取题目</button><button id="solve" disabled>分析答案</button><button id="fill" disabled>一键勾选</button><button id="cancel" class="secondary" hidden>取消</button></div>
         <p id="status" role="status" aria-live="polite">请打开题目页。</p><h2 id="title"></h2>
@@ -369,7 +361,7 @@ async function fillPage(source, choices) {
     el("save").addEventListener("click", async () => {
       try {
         await setValue("settings", {apiKey: el("key").value.trim(), model: el("model").value.trim()});
-        status(bookmarklet ? "设置已保留在当前页面，刷新后需重新填写。" : "设置已保存。");
+        status("设置已保存。");
       } catch (error) {status("保存失败：" + error.message, true);}
     });
     el("forget").addEventListener("click", async () => {
@@ -384,7 +376,6 @@ async function fillPage(source, choices) {
       el("settings").open = !el("key").value;
     } catch (error) {status("读取设置失败：" + error.message, true);}
     controls();
-    if (bookmarklet) await openPanel();
   }
   function bootstrap() {
     if (document.documentElement) mount().catch(() => {});
