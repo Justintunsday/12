@@ -1,227 +1,73 @@
-# Fireflies Reading Assistant · Usage Guide
+# 篇篇流萤 · 通用 JS 用户脚本
 
-Use DeepSeek to explain multiple-choice questions on [篇篇流萤 / Fireflies](https://fireflies.chiculture.org.hk/), review the suggested answers, and select options on your assignment page. The assistant reads the article, questions and options from an individual assignment. You complete website verification and sign in yourself.
+从 **1.2.0** 起，所有平台统一使用原 iOS 版的 [fireflies.user.js](wblock/fireflies.user.js)。仓库只维护这一份运行代码，界面、文章提取、DeepSeek 分析、答案校验和一键勾选逻辑完全共用。Python 脚本、独立桌面扩展和 Android 书签版已停止维护并移除。
 
-This guide covers release 1.1. The desktop extension still displays version 1.0.
+脚本继续放在 `wblock/` 下，以保持现有 iOS 安装地址、脚本身份和存储键兼容；这个目录名不再表示仅支持 iOS。日常安装不需要 Python、Node.js、命令行或构建。
 
-## 1. Choose your version
+## 安装
 
-| Your device | Use this version | What you need to install |
-| --- | --- | --- |
-| Android phone or tablet, Chrome or Edge | [Android bookmarklet](#2-android-chrome-or-edge) | A saved browser bookmark containing the assistant code |
-| Windows, macOS or Linux, desktop Chrome or Edge | [Desktop extension](#3-desktop-chrome-or-edge) | The repository's `chrome-extension` folder |
-| iPhone or iPad, Safari | [wBlock userscript](#4-iphone-or-ipad-safari) | wBlock and the Fireflies userscript |
-| Computer, command-line workflow | [Python script](#6-python-script-advanced) | Python 3.10+, Python dependencies and Playwright Chromium |
+各平台安装相应的用户脚本管理器，然后导入**同一份脚本**：
 
-For the three browser versions, you do **not** need Python, Node.js or a terminal. Android Chrome cannot load the desktop extension; use the bookmarklet on Android.
-
-### Before you start
-
-1. Make sure you can sign in to Fireflies and open an unanswered assignment with its article and multiple-choice questions loaded.
-2. Obtain your own API key from the [DeepSeek platform](https://platform.deepseek.com/). API analysis uses your DeepSeek API balance. No API key or API credit is included in this repository.
-3. Keep the key private. Enter it in the assistant's settings or your local Python environment; do not put it in GitHub issues, source files or the bookmark URL.
-4. Check the model name in settings. The current default is `deepseek-flash`; change it to a compatible model available to your API account if necessary.
-
-An individual assignment URL looks like `https://fireflies.chiculture.org.hk/app/assignments/2026-10-07`. The date is an example: use the URL of **your** assignment, rather than the homepage or assignment list.
-
-## 2. Android Chrome or Edge
-
-A **bookmarklet** is a saved bookmark whose URL contains JavaScript. Opening this bookmark on an assignment adds the assistant to that page.
-
-### Install once
-
-1. Open [the complete bookmark code](https://raw.githubusercontent.com/Justintunsday/pianpianliuying/main/android/bookmarklet.txt) and copy the entire single line, including `javascript:` at the beginning. The line is about 26 KB; select all of it.
-2. In Chrome or Edge, bookmark an ordinary webpage and name the bookmark **Fireflies Assistant**.
-3. Open the browser's **Bookmarks** menu, find that bookmark, and choose **Edit**.
-4. Replace its entire **URL** with the copied code and save. Check that the URL still starts with `javascript:`.
-
-If copying the raw text is difficult, [download the repository ZIP](https://github.com/Justintunsday/pianpianliuying/archive/refs/heads/main.zip), extract it, and open `android/install.html` in your browser. Its **Copy bookmark code** button helps copy the same code. If clipboard access is unavailable, it selects the text so you can copy manually. Opening the HTML file's source view on GitHub does not run the installer.
-
-### Use on an assignment
-
-1. Open Fireflies in the same browser, finish verification and sign in, then open your assignment.
-2. Tap the address bar, type **Fireflies Assistant**, and tap the saved bookmark suggestion. If your browser allows it, you can also open the bookmark from **Bookmarks**. The assistant panel should appear over the assignment.
-3. Expand **DeepSeek 设置** (Settings), enter your API key and model name, and tap **保存设置** (Save settings).
-4. Check the article title and question count. If needed, tap **读取题目** (Read questions).
-5. Tap **分析答案** (Analyze answers). Keep this tab in the foreground while it runs.
-6. Expand **答案分析** (Answer analysis) and read the explanations. If a low-confidence review checkbox appears, check the answers before ticking it.
-7. Tap **一键勾选** (Select answers), then **收起** (Collapse). Check the selections on the website and submit manually.
-
-**Each time the assignment reloads or closes, the Android key and answers are cleared.** Run the bookmark again and re-enter the key. Running it twice on the same loaded page reopens the existing panel.
-
-For detailed setup and browser-policy limitations, see the [Android guide](android/README.md).
-
-## 3. Desktop Chrome or Edge
-
-### Install once
-
-1. [Download the repository ZIP](https://github.com/Justintunsday/pianpianliuying/archive/refs/heads/main.zip) and extract it to a folder you will keep on your computer.
-2. Open `chrome://extensions` in desktop Chrome or `edge://extensions` in desktop Edge.
-3. Enable **Developer mode**, click **Load unpacked**, and select the **`chrome-extension` folder inside the extracted repository**. Select the folder containing `manifest.json`, rather than the ZIP or repository root.
-4. Open the browser's extensions menu and find **篇篇流萤 · 阅读答题助手**. Pin it to the toolbar if you want quick access.
-
-### Use on an assignment
-
-1. In the same browser, sign in to Fireflies and open your assignment.
-2. While that assignment tab is active, click the extension icon. The assistant opens in a separate tab and reads the original assignment.
-3. In **接口设置** (API settings), enter your API key and model name, then click **保存设置** (Save settings).
-4. Confirm the title and question count. Click **读取题目** (Read questions) if you need to read the page again.
-5. Click **DeepSeek 分析答案** (Analyze answers), then review each answer and explanation. Complete the review checkbox if one appears.
-6. Click **一键勾选答案** (Select answers), then **返回题目页** (Return to assignment). Check the selections and submit on the website yourself.
-
-Keep both the assistant and original assignment tabs open during analysis; you may switch to other tabs. Settings are saved locally in the extension. Cached answers can be restored for the same original assignment tab when its content has not changed. **导出文章与答案** exports the currently loaded article, questions and any generated answers as JSON.
-
-See the [desktop extension guide](chrome-extension/README.md) for additional details.
-
-## 4. iPhone or iPad: Safari
-
-### Install once
-
-1. Install or update [wBlock](https://apps.apple.com/hk/app/wblock/id6746388723), then follow wBlock's instructions to enable its Safari extension.
-2. In wBlock, open **Userscripts** and add a script using this URL:
-
-   ```text
-   https://raw.githubusercontent.com/Justintunsday/pianpianliuying/main/wblock/fireflies.user.js
-   ```
-
-3. Enable the script and apply changes if wBlock prompts you. Allow **wBlock Scripts** to run on `fireflies.chiculture.org.hk` in Safari.
-4. If URL installation is unavailable, import the script file or paste its complete contents into wBlock's userscript editor. Add it as a **userscript**, rather than a filter list.
-
-### Use on an assignment
-
-1. In Safari, sign in to Fireflies and open your assignment. Reload the page after installing the script.
-2. Tap the floating **答题助手** (Answer assistant) button.
-3. Expand **DeepSeek 设置** (Settings), enter your API key and model name, and tap **保存设置** (Save settings).
-4. Tap **读取题目** (Read questions), then **分析答案** (Analyze answers). Keep Safari in the foreground.
-5. Expand **答案分析** (Answer analysis), review the explanations, and complete the review checkbox if one appears.
-6. Tap **一键勾选** (Select answers), then **收起** (Collapse). Open the website's answer tab if needed, check the selections, and submit manually.
-
-Settings and cached answers are stored through wBlock's per-script storage. **清除密钥** (Clear key) removes this script's saved settings. See the [iOS guide](wblock/README.md) for permissions and storage details.
-
-## 5. Understanding the controls and results
-
-The browser interface uses Chinese labels:
-
-| Label | Meaning |
+| 平台 | 安装方式 |
 | --- | --- |
-| 答题助手 | Open the answer assistant |
-| 读取题目 | Read the current article and questions again |
-| 分析答案 / DeepSeek 分析答案 | Ask DeepSeek for answers and explanations |
-| 答案分析 | Expand or collapse the mobile answer explanations |
-| 一键勾选 / 一键勾选答案 | Select the suggested options on the website |
-| 保存设置 | Save the key and model using this version's storage |
-| 清除密钥 | Clear saved settings in the Android or iOS version |
-| 取消 / 取消分析 | Cancel the current analysis |
-| 收起 | Collapse the mobile panel |
-| 返回题目页 | Return to the desktop extension's original assignment tab |
-| 导出文章与答案 | Download JSON from the desktop extension |
+| iPhone / iPad Safari | 在 wBlock 中添加用户脚本，启用 Safari 的 wBlock Scripts 扩展，并允许它访问篇篇流萤网站。 |
+| 桌面 Chrome / Edge / Firefox | 安装 [Tampermonkey](https://www.tampermonkey.net/)，新建用户脚本并粘贴完整代码，或打开下面的安装地址。按管理器提示允许脚本运行。 |
+| Android | 使用支持用户脚本的浏览器和管理器，例如 [Firefox for Android 的 Tampermonkey](https://addons.mozilla.org/en-US/android/addon/tampermonkey/)，导入相同脚本。 |
 
-Each generated answer includes the selected option, an explanation and a **model-estimated confidence score**. That score is not an accuracy guarantee. In the browser versions, any answer below 80% confidence requires the review checkbox before selection is enabled.
+统一安装 / 更新地址：
 
-**Selecting answers and submitting are separate actions.** The browser versions select options only; you review and submit on the website. If the article or options change after analysis, read the assignment again and generate fresh answers. Do not rely on an old answer set for a changed page.
-
-## 6. Python script (advanced)
-
-The Python version opens a separate Chromium window with its own saved browser session. It can also analyze a saved HTML file or an exported `assignment.json`. Use this option if you prefer a terminal workflow.
-
-### Install and configure
-
-Install Python 3.10 or later, download and extract the repository, then open a terminal **inside the extracted repository folder**.
-
-**Windows PowerShell:**
-
-```powershell
-py -m pip install -r requirements.txt
-py -m playwright install chromium
-$taskKey = Read-Host 'DeepSeek API Key' -AsSecureString
-$env:DEEPSEEK_API_KEY = [System.Net.NetworkCredential]::new('', $taskKey).Password
-$assignmentUrl = Read-Host 'Paste your full Fireflies assignment URL'
-py fireflies_answer.py --url "$assignmentUrl"
+```text
+https://raw.githubusercontent.com/Justintunsday/pianpianliuying/main/wblock/fireflies.user.js
 ```
 
-**macOS or Linux, using Bash or Zsh:**
+如果管理器没有接管链接，下载脚本文件后导入，或把完整内容粘贴到管理器的新建脚本中。保留开头的 `==UserScript==` 元数据。wBlock 中应添加为 **Userscript / 用户脚本**，不要添加为过滤列表。
 
-```sh
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m playwright install chromium
-printf 'DeepSeek API Key: '
-read -r -s DEEPSEEK_API_KEY
-printf '\n'
-export DEEPSEEK_API_KEY
-printf 'Paste your full Fireflies assignment URL: '
-read -r assignmentUrl
-python fireflies_answer.py --url "$assignmentUrl"
-```
+这是一份依赖 GM 存储和跨域请求 API 的用户脚本，需要通过管理器运行；不要把代码粘贴到地址栏或作为书签安装。其他管理器需提供 `GM_getValue`、`GM_setValue`、`GM_deleteValue`、`GM_xmlhttpRequest`，或对应的 `GM.*` API。具体浏览器和管理器仍需实际安装验证。
 
-The key prompt hides your input. These commands set the key for the current terminal session. If you open another terminal, set the key again. To change the model, add `--model "MODEL_NAME"` to the command, replacing `MODEL_NAME` with a compatible model available to your account.
+## 从旧版本迁移
 
-When Chromium opens, complete verification and sign in **in that window**. Wait for the assignment to load, return to the terminal, and press Enter when prompted. The default command prints and saves suggestions. It waits for another Enter before closing the browser, so you can review the results.
+- **iOS wBlock 旧用户**：在原脚本上更新到 1.2.0，应用更改并刷新题目页。安装地址、脚本名称、namespace 和存储键保持不变；不要重复安装第二份。
+- **桌面扩展旧用户**：移除旧的“篇篇流萤 · 阅读答题助手”扩展，安装用户脚本管理器并导入统一脚本。
+- **Android 书签旧用户**：删除旧书签，在支持用户脚本的浏览器中导入统一脚本。
+- **Python 旧用户**：改用浏览器中的统一脚本。本项目不再提供 CLI、离线 HTML / JSON 分析或自动提交入口。
 
-### Choose what the script does
+更换浏览器或管理器时，原扩展的密钥与缓存不会自动迁移，需要在新脚本中重新填写自己的 API Key。旧版本保留在 Git 历史中。
 
-These examples use PowerShell's `py` launcher and the `$assignmentUrl` entered above. In the macOS/Linux environment, replace `py` with `python`.
+## 使用
 
-| Command | Behavior |
+1. 打开 [篇篇流萤](https://fireflies.chiculture.org.hk/)，手动完成验证和登录，打开一篇未完成的文章答题页。
+2. 点击右下角 **答题助手**。如果刚安装脚本，先刷新页面。
+3. 展开 **DeepSeek 设置**，填写自己的 API Key 和可用模型名称，点击 **保存设置**。默认模型名沿用 `deepseek-flash`，请按自己的 API 账户调整。
+4. 确认文章标题和题目数量。需要时点击 **读取题目**。
+5. 点击 **分析答案**，保持浏览器在前台，等待完成。分析使用你自己的 DeepSeek API 余额。
+6. 展开 **答案分析**，检查选项和解释。有低于 80% 置信度的答案时，先核对并勾选确认框。
+7. 点击上方 **一键勾选**，收起面板，在网站核对已选答案后**手动提交**。
+
+所有平台都使用原 iOS 面板：顶部直接显示操作按钮，解释区域可以折叠。脚本只勾选选项，不自动提交，也不绕过网站验证。模型自评置信度不保证正确率。文章或选项变化后，应重新读取并分析。
+
+## 设置、缓存和权限
+
+- 密钥、模型设置和答案缓存保存在当前用户脚本管理器的独立脚本存储中，不写入网站的 `localStorage` 或 `sessionStorage`。管理器的同步、备份设置可能影响保存位置。
+- 刷新题目页后，密钥可恢复；同一篇文章内容没有变化时，可恢复已缓存答案。**清除密钥**删除当前脚本保存的设置，不删除答案缓存。
+- 仅将文章标题、正文、题目和选项发送给 `api.deepseek.com`；API Key 用于请求认证。不提取网站登录凭据，不随 API 请求发送网站 Cookie。
+- 脚本仅匹配篇篇流萤 HTTPS 网站的 `/app/` 页面，只在单篇日期格式的答题页读取题目。跨域 API 权限由管理器按 `@connect` 声明提供。
+- 取消分析、请求失败、响应不完整或答案校验失败时，不启用勾选。单次请求超时为四分钟。
+
+## 常见问题
+
+| 问题 | 处理方法 |
 | --- | --- |
-| `py fireflies_answer.py --url "$assignmentUrl"` | Analyze and save suggestions; leave options unchanged |
-| `py fireflies_answer.py --url "$assignmentUrl" --fill` | Analyze and select options; leave submission to you |
-| `py fireflies_answer.py --url "$assignmentUrl" --submit` | Analyze, select and submit; this updates the website's assignment record |
-| `py fireflies_answer.py --url "$assignmentUrl" --extract-only` | Save the article and questions without calling DeepSeek; no API key required |
-| `py fireflies_answer.py --help` | Show all options |
+| 没有浮动按钮 | 检查管理器与脚本已启用、已授予网站访问权限，然后刷新篇篇流萤页面。 |
+| 提示用户脚本 API 不可用 | 通过提供 GM 存储和跨域请求 API 的管理器安装运行，检查脚本权限。 |
+| 找不到文章或题目 | 完成登录和验证，打开单篇未完成的答题页，等待正文和题目加载后重新读取。 |
+| HTTP 401 或其他 API 错误 | 检查自己的密钥、API 余额、模型名称和管理器对 `api.deepseek.com` 的访问权限。 |
+| 分析超过四分钟或连接失败 | 保持浏览器在前台，检查网络和管理器权限，取消后重试。 |
+| 一键勾选不可用 | 等待分析成功；出现低置信度确认框时，先检查解释并勾选确认。 |
+| 答案没有保持勾选 | 核对网站表单；若页面或选项变化，重新读取并分析。网站结构更新可能需要修改脚本。 |
 
-By default, Python stops selection and submission if any confidence score is below 80%; it still saves the suggested answers. Unlike the browser interface, it has no review checkbox. Review those suggestions and fill them manually. Run results are stored in timestamped folders under `outputs/`; the separate browser session is stored in `.browser-profile/`.
+## 开发与检查
 
-### If Chromium cannot finish website verification
-
-1. Open the assignment in your regular desktop browser and finish verification and login there.
-2. Wait until the article and questions appear, then save the page using **Webpage, Complete** as `assignment.html`.
-3. With `DEEPSEEK_API_KEY` still set, run:
-
-   ```powershell
-   py fireflies_answer.py --url "$assignmentUrl" --html "assignment.html"
-   ```
-
-This reads the saved file without opening Chromium. Review the output, then select and submit manually on the live website. Local-file mode cannot be combined with `--fill` or `--submit`.
-
-For an `assignment.json` exported by the Python script, use `--input "path/to/assignment.json"` instead of `--html`. The desktop extension's `fireflies-answers.json` has a different wrapper structure and is not a direct `--input` file.
-
-## 7. Troubleshooting
-
-| Problem | What to check |
-| --- | --- |
-| Android bookmark does nothing | Verify the saved URL starts with `javascript:` and includes the full code. Invoke the saved bookmark suggestion while viewing an assignment. Pasting the code into the address bar can turn it into a search. |
-| Desktop extension is missing | Extract the ZIP first, enable Developer mode, and load the inner `chrome-extension` folder. Find the assistant in the browser's extensions menu. |
-| No floating button in Safari | Enable the userscript in wBlock, allow its Safari extension on the Fireflies domain, apply changes, and reload the assignment. |
-| Article or questions cannot be found | Complete verification and login, open an individual unanswered assignment, wait for it to load, and read the questions again. The homepage and assignment list are not supported. |
-| DeepSeek returns HTTP 401 or another API error | Check the key, API balance and model name in the DeepSeek platform. Re-enter the settings and save them. |
-| Connection error or four-minute timeout | Check the network. Keep mobile browsers in the foreground, cancel if necessary, and retry. Android requests also depend on the site's browser security policy and DeepSeek's cross-origin policy. |
-| Select answers is disabled | Wait for successful analysis. If the low-confidence review checkbox appears, review the answers and tick it. Failed or interrupted analysis cannot be used to fill answers. |
-| Page or options changed | Read the assignment again and analyze it again before filling. |
-| Some options did not remain selected | Return to the website and inspect them. Refresh or reread the assignment before retrying; selection depends on the site's current form structure. |
-| Android asks for the key again | Expected after a reload or closed page: Android settings are kept only in that page's memory. |
-
-The project does not complete or bypass website verification. If the website changes its article or question layout, extraction and selection may need a code update.
-
-## 8. Data storage, updates and verification status
-
-Only the article title, article text, questions and options are included in the DeepSeek analysis data. The API key is sent as authentication to the configured API endpoint. Website login credentials are not extracted into the prompt.
-
-| Version | Where settings and results are kept | How to update |
-| --- | --- | --- |
-| Android | Current assignment page memory; lost on reload or close. Runs in the website's page context. | Replace the bookmark URL with the latest code, then reload the assignment. |
-| Desktop extension | Local extension storage; optional JSON exports in your downloads. | Replace the extracted extension files, click Reload on the extensions page, then reopen the assistant from the assignment. |
-| iOS wBlock | wBlock per-script storage; wBlock sync/backup settings may affect retention. | Update or replace the userscript in wBlock, apply changes, then reload Safari's assignment page. |
-| Python | Key in the process environment; results in `outputs/`; browser session in `.browser-profile/`. | Download the latest files and reinstall requirements if they changed. |
-
-The repository excludes Python output and browser-profile folders from Git, but files you export or share can still contain assignment content.
-
-The automated checks cover response validation, option selection, asynchronous form updates and error handling. Android checks execute the generated bookmarklet in desktop Chromium with Android Chrome/Edge user agents, touch input and mobile viewports. **Physical Android/iOS installation, the signed-in live website workflow and a real paid DeepSeek completion remain unverified.**
-
-## 9. For contributors
-
-Ordinary browser users can use the committed installation files without building them. To run checks or rebuild the Android files, install Node.js 20 or later and run from the repository root:
+用户直接安装仓库内的脚本，不需要生成其他平台产物。贡献代码时，使用 Node.js 20 或以上版本：
 
 ```sh
 npm ci
@@ -229,8 +75,6 @@ npx playwright install chromium
 npm test
 ```
 
-The browser checks use `/usr/bin/chromium` when available, otherwise Playwright's Chromium. Set `CHROMIUM_PATH` to select another Chromium executable.
+`npm run check` 运行语法、模型响应、GM API 和异步表单检查；`npm test` 另外在 Chromium 的桌面、iPhone 和 Android 视口中执行同一份脚本，使用模拟的 GM API、题目和模型响应。可通过 `CHROMIUM_PATH` 指定浏览器程序。
 
-After changing the shared userscript or Android installer template, run `npm run build:android` and commit both generated files, `android/bookmarklet.txt` and `android/install.html`. Python syntax can be checked with `python -m py_compile fireflies_answer.py`.
-
-See [ANALYSIS.md](ANALYSIS.md) for the architecture and platform decisions, and the platform guides for additional details: [Android](android/README.md), [desktop extension](chrome-extension/README.md), [iOS wBlock](wblock/README.md).
+这些检查不代表已经在实体手机、真实 wBlock / Tampermonkey 安装环境、已登录网站或付费 DeepSeek 接口上完成验证。架构与验证范围见 [ANALYSIS.md](ANALYSIS.md)。

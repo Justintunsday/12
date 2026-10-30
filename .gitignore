@@ -1,3 +1,4 @@
+# Legacy local data must remain untracked after migration.
 .browser-profile/
 outputs/
 .venv/
